@@ -26,3 +26,6 @@ dist/
 
 # goland directories
 .idea/
+
+# data files
+*.tsv
