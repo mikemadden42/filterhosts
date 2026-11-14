@@ -21,9 +21,10 @@ func TestParseHosts(t *testing.T) {
 	const header = "Status\tDevice Name\tIP Address\tMAC Address\tConnection Type\n"
 
 	tests := []struct {
-		name  string
-		input string
-		want  map[string][]string
+		name        string
+		input       string
+		want        map[string][]string
+		wantSkipped []int
 	}{
 		{
 			name:  "empty",
@@ -54,10 +55,23 @@ func TestParseHosts(t *testing.T) {
 			want: map[string][]string{
 				"WiFi": {"laptop"},
 			},
+			wantSkipped: []int{3},
 		},
 		{
-			name:  "handles CRLF line endings",
-			input: "On\tlaptop\t10.0.0.2\taa:bb\tEthernet\r\nOn\ttv\t10.0.0.5\tgg:hh\tEthernet\r\n",
+			name: "ignores blank lines",
+			input: header +
+				"\n" +
+				"On\tlaptop\t10.0.0.2\taa:bb\tWiFi\n" +
+				"  \n",
+			want: map[string][]string{
+				"WiFi": {"laptop"},
+			},
+		},
+		{
+			name: "handles CRLF line endings",
+			input: strings.ReplaceAll(header, "\n", "\r\n") +
+				"On\tlaptop\t10.0.0.2\taa:bb\tEthernet\r\n" +
+				"On\ttv\t10.0.0.5\tgg:hh\tEthernet\r\n",
 			want: map[string][]string{
 				"Ethernet": {"laptop", "tv"},
 			},
@@ -66,13 +80,16 @@ func TestParseHosts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			groups, err := parseHosts(strings.NewReader(tt.input))
+			groups, skipped, err := parseHosts(strings.NewReader(tt.input))
 			if err != nil {
 				t.Fatalf("parseHosts: %v", err)
 			}
 			got := names(groups, func(d Device) string { return d.Name })
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(skipped, tt.wantSkipped) {
+				t.Errorf("skipped lines: got %v, want %v", skipped, tt.wantSkipped)
 			}
 		})
 	}
@@ -86,6 +103,7 @@ func TestParseLanHosts(t *testing.T) {
 		input          string
 		wantStatus     map[string][]string
 		wantConnection map[string][]string
+		wantSkipped    []int
 	}{
 		{
 			name:           "empty",
@@ -137,12 +155,13 @@ func TestParseLanHosts(t *testing.T) {
 			wantConnection: map[string][]string{
 				"Wi-Fi": {"phone"},
 			},
+			wantSkipped: []int{3},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			statusGroups, connectionGroups, err := parseLanHosts(strings.NewReader(tt.input))
+			statusGroups, connectionGroups, skipped, err := parseLanHosts(strings.NewReader(tt.input))
 			if err != nil {
 				t.Fatalf("parseLanHosts: %v", err)
 			}
@@ -152,6 +171,9 @@ func TestParseLanHosts(t *testing.T) {
 			}
 			if got := names(connectionGroups, name); !reflect.DeepEqual(got, tt.wantConnection) {
 				t.Errorf("connection groups: got %v, want %v", got, tt.wantConnection)
+			}
+			if !reflect.DeepEqual(skipped, tt.wantSkipped) {
+				t.Errorf("skipped lines: got %v, want %v", skipped, tt.wantSkipped)
 			}
 		})
 	}
