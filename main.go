@@ -1,9 +1,12 @@
-// Command filterhosts summarizes router host exports (hosts.tsv and
-// lan-hosts.tsv), grouping devices by connection type and status.
+// Command filterhosts summarizes router host exports, grouping devices by
+// connection type and status. The -hosts and -lan flags name the input files
+// (hosts.tsv and lan-hosts.tsv by default).
 package main
 
 import (
 	"bufio"
+	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -27,22 +30,41 @@ type LanDevice struct {
 }
 
 func main() {
-	failed := false
+	hostsFile := flag.String("hosts", "hosts.tsv", "hosts export to group by connection type (\"\" to skip)")
+	lanFile := flag.String("lan", "lan-hosts.tsv", "LAN hosts export to group by status and connection (\"\" to skip)")
+	flag.Parse()
 
-	// Process "hosts.tsv" and "lan-hosts.tsv", reporting errors on stderr
-	for _, process := range []func() error{
-		func() error { return processHostsFile("hosts.tsv") },
-		func() error { return processLanHostsFile("lan-hosts.tsv") },
-	} {
-		if err := process(); err != nil {
-			fmt.Fprintln(os.Stderr, "filterhosts:", err)
-			failed = true
+	// All input comes from flags, so extra arguments are a usage error
+	if flag.NArg() > 0 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	if err := run(*hostsFile, *lanFile); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+// run processes the given hosts and LAN hosts files, skipping any whose name
+// is empty. A failure in one file does not stop the other from being
+// processed; all errors are returned joined.
+func run(hostsFile, lanFile string) error {
+	var errs []error
+
+	if hostsFile != "" {
+		if err := processHostsFile(hostsFile); err != nil {
+			errs = append(errs, fmt.Errorf("filterhosts: %w", err))
 		}
 	}
 
-	if failed {
-		os.Exit(1)
+	if lanFile != "" {
+		if err := processLanHostsFile(lanFile); err != nil {
+			errs = append(errs, fmt.Errorf("filterhosts: %w", err))
+		}
 	}
+
+	return errors.Join(errs...)
 }
 
 // warnSkipped reports rows the parser skipped for having too few fields.
