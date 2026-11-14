@@ -5,6 +5,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -46,11 +47,24 @@ func processHostsFile(filename string) {
 		}
 	}()
 
+	connectionTypeGroups, err := parseHosts(file)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		return
+	}
+
+	// Print the summary by Connection Type
+	printGroups(fmt.Sprintf("Devices Grouped by Connection Type (%s)", filename),
+		connectionTypeGroups, func(d Device) string { return d.Name })
+}
+
+// parseHosts reads hosts.tsv data and groups devices by connection type.
+func parseHosts(r io.Reader) (map[string][]Device, error) {
 	// Initialize a map to store devices grouped by connection type
 	connectionTypeGroups := make(map[string][]Device)
 
 	// Read the file line by line
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -78,20 +92,7 @@ func processHostsFile(filename string) {
 		}
 	}
 
-	// Check for scanner errors
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading file:", err)
-		return
-	}
-
-	// Print the summary by Connection Type
-	fmt.Printf("\nDevices Grouped by Connection Type (%s):\n", filename)
-	for _, connectionType := range sortedKeys(connectionTypeGroups) {
-		fmt.Printf("%s:\n", connectionType)
-		for _, device := range connectionTypeGroups[connectionType] {
-			fmt.Printf("\t- %s\n", device.Name)
-		}
-	}
+	return connectionTypeGroups, scanner.Err()
 }
 
 func processLanHostsFile(filename string) {
@@ -107,18 +108,33 @@ func processLanHostsFile(filename string) {
 		}
 	}()
 
-	// Initialize maps to store devices
-	connectionGroups := make(map[string][]LanDevice)
-	statusGroups := make(map[string][]LanDevice)
+	statusGroups, connectionGroups, err := parseLanHosts(file)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		return
+	}
 
-	// Initialize a slice to store Status summary lines
-	var statusSummaryLines []string
+	name := func(d LanDevice) string { return d.Name }
+
+	// Print the summary by Status type
+	printGroups(fmt.Sprintf("Devices Grouped by Status (%s)", filename), statusGroups, name)
+
+	// Print the summary by Connection type
+	printGroups(fmt.Sprintf("Devices Grouped by Connection (%s)", filename), connectionGroups, name)
+}
+
+// parseLanHosts reads lan-hosts.tsv data and groups devices by status and
+// by connection.
+func parseLanHosts(r io.Reader) (statusGroups, connectionGroups map[string][]LanDevice, err error) {
+	// Initialize maps to store devices
+	statusGroups = make(map[string][]LanDevice)
+	connectionGroups = make(map[string][]LanDevice)
 
 	// Track if the current line is the header
 	isHeader := true
 
 	// Read the file line by line
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
 
@@ -139,46 +155,23 @@ func processLanHostsFile(filename string) {
 				Connection: fields[2],
 			}
 
-			// Group devices by Connection type
+			// Group devices by Status and by Connection type
+			statusGroups[device.Status] = append(statusGroups[device.Status], device)
 			connectionGroups[device.Connection] = append(connectionGroups[device.Connection], device)
-
-			// Check for Status summary
-			if fields[1] == "Status" {
-				statusSummaryLines = append(statusSummaryLines, line)
-			} else {
-				// Group devices by Status type
-				statusGroups[device.Status] = append(statusGroups[device.Status], device)
-			}
 		}
 	}
 
-	// Check for scanner errors
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading file:", err)
-		return
-	}
+	return statusGroups, connectionGroups, scanner.Err()
+}
 
-	// Print the Status summary lines first
-	fmt.Printf("\nStatus Summary (%s):\n", filename)
-	for _, line := range statusSummaryLines {
-		fmt.Println(line)
-	}
-
-	// Print the summary by Status type
-	fmt.Printf("\nDevices Grouped by Status (%s):\n", filename)
-	for _, status := range sortedKeys(statusGroups) {
-		fmt.Printf("%s:\n", status)
-		for _, device := range statusGroups[status] {
-			fmt.Printf("\t- %s\n", device.Name)
-		}
-	}
-
-	// Print the summary by Connection type
-	fmt.Printf("\nDevices Grouped by Connection (%s):\n", filename)
-	for _, connection := range sortedKeys(connectionGroups) {
-		fmt.Printf("%s:\n", connection)
-		for _, device := range connectionGroups[connection] {
-			fmt.Printf("\t- %s\n", device.Name)
+// printGroups prints each group's devices under its key, with keys sorted so
+// output is stable.
+func printGroups[T any](title string, groups map[string][]T, name func(T) string) {
+	fmt.Printf("\n%s:\n", title)
+	for _, key := range sortedKeys(groups) {
+		fmt.Printf("%s:\n", key)
+		for _, device := range groups[key] {
+			fmt.Printf("\t- %s\n", name(device))
 		}
 	}
 }
