@@ -86,7 +86,7 @@ func TestParseHosts(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseHosts: %v", err)
 			}
-			got := names(groups, func(d Device) string { return d.Name })
+			got := names(groups, func(d hostDevice) string { return d.Name })
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
@@ -167,7 +167,7 @@ func TestParseLanHosts(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseLanHosts: %v", err)
 			}
-			name := func(d LanDevice) string { return d.Name }
+			name := func(d lanDevice) string { return d.Name }
 			if got := names(statusGroups, name); !reflect.DeepEqual(got, tt.wantStatus) {
 				t.Errorf("status groups: got %v, want %v", got, tt.wantStatus)
 			}

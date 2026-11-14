@@ -12,7 +12,7 @@
 
 - [x] Take file names as flags/arguments instead of hard-coding `hosts.tsv` and `lan-hosts.tsv`.
 - [x] Replace the three copied "group and print" loops with one helper (e.g. `printGroups(title string, groups map[string][]string)` with sorted keys).
-- [ ] `LanDevice` ignores `fields[3]`; `Device`/`LanDevice` are exported without doc comments (unnecessary in `package main`).
+- [x] `LanDevice` ignores `fields[3]`; `Device`/`LanDevice` are exported without doc comments (unnecessary in `package main`).
 - [x] Add tests: split parsing (`io.Reader` → groups) from printing and cover it with table tests using inline TSV.
 
 ## Tooling and config
@@ -24,9 +24,9 @@
   - `issues.exclude-dirs` → `linters.exclusions.paths`
   - `goimports.local-prefixes` → under `formatters.settings`, as a list
 - [x] Fix current lint findings: unchecked `file.Close` ×2, gosec G304 ×2, missing package comment.
-- [ ] Rename module to `github.com/mikemadden42/filterhosts` so the goimports local-prefix applies and `go install` works.
+- [x] Rename module to `github.com/mikemadden42/filterhosts` so the goimports local-prefix applies and `go install` works.
 - [x] Fix `.goreleaser.yaml` (`goreleaser check` fails): add `version: 2`, rename `snapshot.name_template` → `version_template`, drop the no-op `go generate` hook.
-- [ ] Update CI: test Go `oldstable` and `stable` (done), bump `go.mod` from `go 1.21`, update `actions/checkout` and `actions/setup-go` to current majors, add `golangci/golangci-lint-action`.
+- [x] Update CI: test Go `oldstable` and `stable`, bump `go.mod` from `go 1.21`, update `actions/checkout` and `actions/setup-go` to current majors, add `golangci/golangci-lint-action`.
 - [ ] Expand README: expected TSV columns for each file and sample output.
 
 ## Suggested order
