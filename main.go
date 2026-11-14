@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -78,9 +79,9 @@ func processHostsFile(filename string) {
 
 	// Print the summary by Connection Type
 	fmt.Printf("\nDevices Grouped by Connection Type (%s):\n", filename)
-	for connectionType, devices := range connectionTypeGroups {
+	for _, connectionType := range sortedKeys(connectionTypeGroups) {
 		fmt.Printf("%s:\n", connectionType)
-		for _, device := range devices {
+		for _, device := range connectionTypeGroups[connectionType] {
 			fmt.Printf("\t- %s\n", device.Name)
 		}
 	}
@@ -99,8 +100,7 @@ func processLanHostsFile(filename string) {
 	connectionGroups := make(map[string][]LanDevice)
 	statusGroups := make(map[string][]LanDevice)
 
-	// Initialize slices to store Connection and Status summary lines
-	var connectionSummaryLines []string
+	// Initialize a slice to store Status summary lines
 	var statusSummaryLines []string
 
 	// Track if the current line is the header
@@ -128,13 +128,8 @@ func processLanHostsFile(filename string) {
 				Connection: fields[2],
 			}
 
-			// Check for Connection summary
-			if fields[3] == "Wi-Fi   Wi-Fi 5 bars" {
-				connectionSummaryLines = append(connectionSummaryLines, line)
-			} else {
-				// Group devices by Connection type
-				connectionGroups[device.Connection] = append(connectionGroups[device.Connection], device)
-			}
+			// Group devices by Connection type
+			connectionGroups[device.Connection] = append(connectionGroups[device.Connection], device)
 
 			// Check for Status summary
 			if fields[1] == "Status" {
@@ -160,25 +155,29 @@ func processLanHostsFile(filename string) {
 
 	// Print the summary by Status type
 	fmt.Printf("\nDevices Grouped by Status (%s):\n", filename)
-	for status, devices := range statusGroups {
+	for _, status := range sortedKeys(statusGroups) {
 		fmt.Printf("%s:\n", status)
-		for _, device := range devices {
+		for _, device := range statusGroups[status] {
 			fmt.Printf("\t- %s\n", device.Name)
 		}
-	}
-
-	// Print the Connection summary lines
-	fmt.Printf("\nConnection Summary (%s):\n", filename)
-	for _, line := range connectionSummaryLines {
-		fmt.Println(line)
 	}
 
 	// Print the summary by Connection type
 	fmt.Printf("\nDevices Grouped by Connection (%s):\n", filename)
-	for connection, devices := range connectionGroups {
+	for _, connection := range sortedKeys(connectionGroups) {
 		fmt.Printf("%s:\n", connection)
-		for _, device := range devices {
+		for _, device := range connectionGroups[connection] {
 			fmt.Printf("\t- %s\n", device.Name)
 		}
 	}
+}
+
+// sortedKeys returns the keys of m in sorted order so output is stable.
+func sortedKeys[T any](m map[string][]T) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }
