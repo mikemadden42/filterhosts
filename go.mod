@@ -1,3 +1,3 @@
-module filterhosts
+module github.com/mikemadden42/filterhosts
 
-go 1.21
+go 1.26

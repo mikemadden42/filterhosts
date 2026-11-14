@@ -15,7 +15,8 @@ import (
 	"strings"
 )
 
-type Device struct {
+// hostDevice is one row of a hosts.tsv export.
+type hostDevice struct {
 	Status         string
 	Name           string
 	IPAddress      string
@@ -23,7 +24,8 @@ type Device struct {
 	ConnectionType string
 }
 
-type LanDevice struct {
+// lanDevice is one row of a lan-hosts.tsv export.
+type lanDevice struct {
 	Name       string
 	Status     string
 	Connection string
@@ -94,19 +96,19 @@ func processHostsFile(filename string) (err error) {
 
 	// Print the summary by Connection Type
 	printGroups(fmt.Sprintf("Devices Grouped by Connection Type (%s)", filename),
-		connectionTypeGroups, func(d Device) string { return d.Name })
+		connectionTypeGroups, func(d hostDevice) string { return d.Name })
 	return nil
 }
 
 // parseHosts reads hosts.tsv data and groups devices by connection type.
 // It also returns the line numbers of rows skipped for having too few fields.
-func parseHosts(r io.Reader) (map[string][]Device, []int, error) {
+func parseHosts(r io.Reader) (map[string][]hostDevice, []int, error) {
 	// Initialize a map to store devices grouped by connection type
-	connectionTypeGroups := make(map[string][]Device)
+	connectionTypeGroups := make(map[string][]hostDevice)
 
 	skipped, err := scanRows(r, 5, func(fields []string) {
 		// Extract Device information
-		device := Device{
+		device := hostDevice{
 			Status:         fields[0],
 			Name:           fields[1],
 			IPAddress:      fields[2],
@@ -139,7 +141,7 @@ func processLanHostsFile(filename string) (err error) {
 	}
 	warnSkipped(filename, skipped)
 
-	name := func(d LanDevice) string { return d.Name }
+	name := func(d lanDevice) string { return d.Name }
 
 	// Print the summary by Status type
 	printGroups(fmt.Sprintf("Devices Grouped by Status (%s)", filename), statusGroups, name)
@@ -152,14 +154,14 @@ func processLanHostsFile(filename string) (err error) {
 // parseLanHosts reads lan-hosts.tsv data and groups devices by status and
 // by connection. It also returns the line numbers of rows skipped for having
 // too few fields.
-func parseLanHosts(r io.Reader) (statusGroups, connectionGroups map[string][]LanDevice, skipped []int, err error) {
+func parseLanHosts(r io.Reader) (statusGroups, connectionGroups map[string][]lanDevice, skipped []int, err error) {
 	// Initialize maps to store devices
-	statusGroups = make(map[string][]LanDevice)
-	connectionGroups = make(map[string][]LanDevice)
+	statusGroups = make(map[string][]lanDevice)
+	connectionGroups = make(map[string][]lanDevice)
 
 	skipped, err = scanRows(r, 4, func(fields []string) {
 		// Extract Device information
-		device := LanDevice{
+		device := lanDevice{
 			Name:       fields[0],
 			Status:     fields[1],
 			Connection: fields[2],
