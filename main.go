@@ -27,92 +27,95 @@ type LanDevice struct {
 }
 
 func main() {
-	// Process "hosts.tsv"
-	processHostsFile("hosts.tsv")
+	failed := false
 
-	// Process "lan-hosts.tsv"
-	processLanHostsFile("lan-hosts.tsv")
+	// Process "hosts.tsv" and "lan-hosts.tsv", reporting errors on stderr
+	for _, process := range []func() error{
+		func() error { return processHostsFile("hosts.tsv") },
+		func() error { return processLanHostsFile("lan-hosts.tsv") },
+	} {
+		if err := process(); err != nil {
+			fmt.Fprintln(os.Stderr, "filterhosts:", err)
+			failed = true
+		}
+	}
+
+	if failed {
+		os.Exit(1)
+	}
 }
 
-func processHostsFile(filename string) {
+// warnSkipped reports rows the parser skipped for having too few fields.
+func warnSkipped(filename string, skipped []int) {
+	for _, line := range skipped {
+		fmt.Fprintf(os.Stderr, "filterhosts: %s:%d: skipping row with too few fields\n", filename, line)
+	}
+}
+
+func processHostsFile(filename string) (err error) {
 	// Open the data file
 	file, err := os.Open(filepath.Clean(filename))
 	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
+		return err
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			fmt.Println("Error closing file:", err)
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = cerr
 		}
 	}()
 
-	connectionTypeGroups, err := parseHosts(file)
+	connectionTypeGroups, skipped, err := parseHosts(file)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return
+		return fmt.Errorf("reading %s: %w", filename, err)
 	}
+	warnSkipped(filename, skipped)
 
 	// Print the summary by Connection Type
 	printGroups(fmt.Sprintf("Devices Grouped by Connection Type (%s)", filename),
 		connectionTypeGroups, func(d Device) string { return d.Name })
+	return nil
 }
 
 // parseHosts reads hosts.tsv data and groups devices by connection type.
-func parseHosts(r io.Reader) (map[string][]Device, error) {
+// It also returns the line numbers of rows skipped for having too few fields.
+func parseHosts(r io.Reader) (map[string][]Device, []int, error) {
 	// Initialize a map to store devices grouped by connection type
 	connectionTypeGroups := make(map[string][]Device)
 
-	// Read the file line by line
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Skip the header line
-		if strings.Contains(line, "Status\tDevice Name\tIP Address\tMAC Address\tConnection Type") {
-			continue
+	skipped, err := scanRows(r, 5, func(fields []string) {
+		// Extract Device information
+		device := Device{
+			Status:         fields[0],
+			Name:           fields[1],
+			IPAddress:      fields[2],
+			MACAddress:     fields[3],
+			ConnectionType: fields[4],
 		}
 
-		// Split the line using the tab character as the delimiter
-		fields := strings.Split(line, "\t")
+		// Group devices by Connection Type
+		connectionTypeGroups[device.ConnectionType] = append(connectionTypeGroups[device.ConnectionType], device)
+	})
 
-		// Ensure the line has enough fields
-		if len(fields) >= 5 {
-			// Extract Device information
-			device := Device{
-				Status:         fields[0],
-				Name:           fields[1],
-				IPAddress:      fields[2],
-				MACAddress:     fields[3],
-				ConnectionType: fields[4],
-			}
-
-			// Group devices by Connection Type
-			connectionTypeGroups[device.ConnectionType] = append(connectionTypeGroups[device.ConnectionType], device)
-		}
-	}
-
-	return connectionTypeGroups, scanner.Err()
+	return connectionTypeGroups, skipped, err
 }
 
-func processLanHostsFile(filename string) {
+func processLanHostsFile(filename string) (err error) {
 	// Open the data file
 	file, err := os.Open(filepath.Clean(filename))
 	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
+		return err
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			fmt.Println("Error closing file:", err)
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = cerr
 		}
 	}()
 
-	statusGroups, connectionGroups, err := parseLanHosts(file)
+	statusGroups, connectionGroups, skipped, err := parseLanHosts(file)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
-		return
+		return fmt.Errorf("reading %s: %w", filename, err)
 	}
+	warnSkipped(filename, skipped)
 
 	name := func(d LanDevice) string { return d.Name }
 
@@ -121,47 +124,62 @@ func processLanHostsFile(filename string) {
 
 	// Print the summary by Connection type
 	printGroups(fmt.Sprintf("Devices Grouped by Connection (%s)", filename), connectionGroups, name)
+	return nil
 }
 
 // parseLanHosts reads lan-hosts.tsv data and groups devices by status and
-// by connection.
-func parseLanHosts(r io.Reader) (statusGroups, connectionGroups map[string][]LanDevice, err error) {
+// by connection. It also returns the line numbers of rows skipped for having
+// too few fields.
+func parseLanHosts(r io.Reader) (statusGroups, connectionGroups map[string][]LanDevice, skipped []int, err error) {
 	// Initialize maps to store devices
 	statusGroups = make(map[string][]LanDevice)
 	connectionGroups = make(map[string][]LanDevice)
 
-	// Track if the current line is the header
-	isHeader := true
+	skipped, err = scanRows(r, 4, func(fields []string) {
+		// Extract Device information
+		device := LanDevice{
+			Name:       fields[0],
+			Status:     fields[1],
+			Connection: fields[2],
+		}
+
+		// Group devices by Status and by Connection type
+		statusGroups[device.Status] = append(statusGroups[device.Status], device)
+		connectionGroups[device.Connection] = append(connectionGroups[device.Connection], device)
+	})
+
+	return statusGroups, connectionGroups, skipped, err
+}
+
+// scanRows calls row with the tab-separated fields of each line after the
+// header. Blank lines are ignored; lines with fewer than minFields fields are
+// skipped and their 1-based line numbers returned.
+func scanRows(r io.Reader, minFields int, row func(fields []string)) ([]int, error) {
+	var skipped []int
 
 	// Read the file line by line
 	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
+	for lineNum := 1; scanner.Scan(); lineNum++ {
 		line := scanner.Text()
 
-		// Skip the header line
-		if isHeader {
-			isHeader = false
+		// Skip the header line and blank lines
+		if lineNum == 1 || strings.TrimSpace(line) == "" {
 			continue
 		}
 
+		// Split the line using the tab character as the delimiter
 		fields := strings.Split(line, "\t")
 
 		// Ensure the line has enough fields
-		if len(fields) >= 4 {
-			// Extract Device information
-			device := LanDevice{
-				Name:       fields[0],
-				Status:     fields[1],
-				Connection: fields[2],
-			}
-
-			// Group devices by Status and by Connection type
-			statusGroups[device.Status] = append(statusGroups[device.Status], device)
-			connectionGroups[device.Connection] = append(connectionGroups[device.Connection], device)
+		if len(fields) < minFields {
+			skipped = append(skipped, lineNum)
+			continue
 		}
+
+		row(fields)
 	}
 
-	return statusGroups, connectionGroups, scanner.Err()
+	return skipped, scanner.Err()
 }
 
 // printGroups prints each group's devices under its key, with keys sorted so

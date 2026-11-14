@@ -5,8 +5,8 @@
 - [x] **Wi-Fi "5 bars" devices disappear from the connection report** (`processLanHostsFile`). Rows whose 4th column is `"Wi-Fi   Wi-Fi 5 bars"` go into "Connection Summary" as raw lines instead of being grouped, so devices with the best signal never appear under "Devices Grouped by Connection".
 - [x] **Output order changes every run.** All reports loop over Go maps, which have no fixed order. Sort the keys before printing.
 - [x] **`fields[1] == "Status"` check is dead code.** The header is already skipped, so "Status Summary" is almost always empty. Remove it or define what the summary should be.
-- [ ] **Errors look like success.** Errors go to stdout and the program exits 0. Write to stderr, return errors from the functions, and `os.Exit(1)` in `main`.
-- [ ] **Short rows are dropped silently.** Warn on rows with too few fields. Make header skipping consistent between the two parsers (one matches a string, the other drops the first line).
+- [x] **Errors look like success.** Errors go to stdout and the program exits 0. Write to stderr, return errors from the functions, and `os.Exit(1)` in `main`.
+- [x] **Short rows are dropped silently.** Warn on rows with too few fields. Make header skipping consistent between the two parsers (one matches a string, the other drops the first line).
 
 ## Design
 
