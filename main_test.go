@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -174,6 +176,65 @@ func TestParseLanHosts(t *testing.T) {
 			}
 			if !reflect.DeepEqual(skipped, tt.wantSkipped) {
 				t.Errorf("skipped lines: got %v, want %v", skipped, tt.wantSkipped)
+			}
+		})
+	}
+}
+
+func TestRun(t *testing.T) {
+	dir := t.TempDir()
+	hostsFile := filepath.Join(dir, "hosts.tsv")
+	lanFile := filepath.Join(dir, "lan-hosts.tsv")
+	missingHosts := filepath.Join(dir, "missing-hosts.tsv")
+	missingLan := filepath.Join(dir, "missing-lan.tsv")
+
+	files := map[string]string{
+		hostsFile: "Status\tDevice Name\tIP Address\tMAC Address\tConnection Type\n" +
+			"On\tlaptop\t10.0.0.2\taa:bb\tWiFi\n",
+		lanFile: "Name\tStatus\tConnection\tSignal\n" +
+			"phone\tOnline\tWi-Fi\t-\n",
+	}
+	for path, data := range files {
+		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	tests := []struct {
+		name      string
+		hostsFile string
+		lanFile   string
+		wantErrs  []string
+	}{
+		{name: "both files", hostsFile: hostsFile, lanFile: lanFile},
+		{name: "skip both", hostsFile: "", lanFile: ""},
+		{name: "skip lan", hostsFile: hostsFile, lanFile: ""},
+		{name: "missing hosts file", hostsFile: missingHosts, lanFile: lanFile, wantErrs: []string{missingHosts}},
+		{
+			// Both files are attempted even after the first one fails
+			name:      "both missing",
+			hostsFile: missingHosts,
+			lanFile:   missingLan,
+			wantErrs:  []string{missingHosts, missingLan},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := run(tt.hostsFile, tt.lanFile)
+			if len(tt.wantErrs) == 0 {
+				if err != nil {
+					t.Fatalf("run: unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("run: got nil error, want errors mentioning %v", tt.wantErrs)
+			}
+			for _, want := range tt.wantErrs {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("run: error %q does not mention %q", err, want)
+				}
 			}
 		})
 	}

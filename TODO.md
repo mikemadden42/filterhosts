@@ -10,7 +10,7 @@
 
 ## Design
 
-- [ ] Take file names as flags/arguments instead of hard-coding `hosts.tsv` and `lan-hosts.tsv`.
+- [x] Take file names as flags/arguments instead of hard-coding `hosts.tsv` and `lan-hosts.tsv`.
 - [x] Replace the three copied "group and print" loops with one helper (e.g. `printGroups(title string, groups map[string][]string)` with sorted keys).
 - [ ] `LanDevice` ignores `fields[3]`; `Device`/`LanDevice` are exported without doc comments (unnecessary in `package main`).
 - [x] Add tests: split parsing (`io.Reader` → groups) from printing and cover it with table tests using inline TSV.
