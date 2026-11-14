@@ -1,9 +1,12 @@
+// Command filterhosts summarizes router host exports (hosts.tsv and
+// lan-hosts.tsv), grouping devices by connection type and status.
 package main
 
 import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -32,12 +35,16 @@ func main() {
 
 func processHostsFile(filename string) {
 	// Open the data file
-	file, err := os.Open(filename)
+	file, err := os.Open(filepath.Clean(filename))
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Println("Error closing file:", err)
+		}
+	}()
 
 	// Initialize a map to store devices grouped by connection type
 	connectionTypeGroups := make(map[string][]Device)
@@ -89,12 +96,16 @@ func processHostsFile(filename string) {
 
 func processLanHostsFile(filename string) {
 	// Open the data file
-	file, err := os.Open(filename)
+	file, err := os.Open(filepath.Clean(filename))
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Println("Error closing file:", err)
+		}
+	}()
 
 	// Initialize maps to store devices
 	connectionGroups := make(map[string][]LanDevice)

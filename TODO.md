@@ -17,20 +17,20 @@
 
 ## Tooling and config
 
-- [ ] Migrate `.golangci.yml` to v2 schema (`golangci-lint config verify` fails):
+- [x] Migrate `.golangci.yml` to v2 schema (`golangci-lint config verify` fails):
   - `version: "2"` (string)
   - `disable-all` → `linters.default: none`
   - `linters-settings` → `linters.settings`
   - `issues.exclude-dirs` → `linters.exclusions.paths`
   - `goimports.local-prefixes` → under `formatters.settings`, as a list
-- [ ] Fix current lint findings: unchecked `file.Close` ×2, gosec G304 ×2, missing package comment.
+- [x] Fix current lint findings: unchecked `file.Close` ×2, gosec G304 ×2, missing package comment.
 - [ ] Rename module to `github.com/mikemadden42/filterhosts` so the goimports local-prefix applies and `go install` works.
-- [ ] Fix `.goreleaser.yaml` (`goreleaser check` fails): add `version: 2`, rename `snapshot.name_template` → `version_template`, drop the no-op `go generate` hook.
+- [x] Fix `.goreleaser.yaml` (`goreleaser check` fails): add `version: 2`, rename `snapshot.name_template` → `version_template`, drop the no-op `go generate` hook.
 - [ ] Update CI: test Go `oldstable` and `stable` (done), bump `go.mod` from `go 1.21`, update `actions/checkout` and `actions/setup-go` to current majors, add `golangci/golangci-lint-action`.
 - [ ] Expand README: expected TSV columns for each file and sample output.
 
 ## Suggested order
 
 1. ~~Bugs 1–2 (wrong or unstable output)~~ done
-2. Lint and release configs
+2. ~~Lint and release configs~~ done
 3. Parser tests
